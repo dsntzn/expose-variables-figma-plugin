@@ -10,9 +10,9 @@ let selection: ReadonlyArray<SceneNode>
 let working: boolean
 let count: number = 0
 
-const FONT_REGULAR: FontName = { family: 'Inter', style: 'Regular' }
-const FONT_SEMIBOLD: FontName = { family: 'Inter', style: 'Semi Bold' }
-const FONT_ITALIC: FontName = { family: 'Inter', style: 'Italic' }
+const FONT_REGULAR: FontName = { family: 'Source Sans Pro', style: 'Regular' }
+const FONT_SEMIBOLD: FontName = { family: 'Source Sans Pro', style: 'SemiBold' }
+const FONT_ITALIC: FontName = { family: 'Source Sans Pro', style: 'Italic' }
 const FONT_MONO: FontName = { family: 'Space Mono', style: 'Regular' }
 const LIGHT: Paint = { type: 'SOLID', color: { r: 0.988, g: 0.988, b: 0.988 } }
 const DARK: Paint = { type: 'SOLID', color: { r: 0.192, g: 0.192, b: 0.192 } }
@@ -26,7 +26,8 @@ const MARGIN_Y: number = 40
 const FONT_SIZE: number = 24
 const L_FONT_SIZE: number = 40
 const CORNER_RADIUS: number = 16
-const MAX_COLUMN_WIDTH: number = 320
+const MAX_COLUMN_WIDTH: number = 3000
+// const MAIN_FRAME_MIN_WIDTH: number = 10000
 
 figma.on("currentpagechange", cancel)
 
@@ -40,9 +41,10 @@ if (!collections)
 let mainFrame: FrameNode
 
 function createMainFrame() {
-  mainFrame = createAutolayout('Local Variables', 'VERTICAL', 2 * MARGIN_Y, 2 * MARGIN_Y, 2 * MARGIN_Y)
+  mainFrame = createAutolayout('Local Variables', 'HORIZONTAL', 2 * MARGIN_Y, 2 * MARGIN_Y, 2 * MARGIN_Y)
+  // mainFrame.minWidth = MAIN_FRAME_MIN_WIDTH
   mainFrame.locked = true
-  mainFrame.fills = [LIGHT]
+  mainFrame.fills = [DARK_20]
   mainFrame.x = Math.round(figma.viewport.center.x - mainFrame.width / 2)
   mainFrame.y = Math.round(figma.viewport.center.y - mainFrame.height / 2)
   mainFrame.cornerRadius = CORNER_RADIUS
@@ -69,11 +71,14 @@ async function writeVariables() {
   await figma.loadFontAsync(FONT_ITALIC)
   for (const c of collections) {
 
-    const collectionRow: FrameNode = createAutolayout(c.name, 'HORIZONTAL', MARGIN_X)
+    const collectionRow: FrameNode = createAutolayout(c.name, 'HORIZONTAL', MARGIN_X, 20)
     mainFrame.appendChild(collectionRow)
+    collectionRow.layoutSizingHorizontal = "HUG"
+    collectionRow.fills = [LIGHT]
 
-    const nameColumn: FrameNode = createAutolayout('Names', 'VERTICAL', MARGIN_Y)
+    const nameColumn: FrameNode = createAutolayout('Names', 'VERTICAL', MARGIN_Y, 0, 0)
     collectionRow.appendChild(nameColumn)
+    nameColumn.layoutSizingHorizontal = "HUG"
 
     // Name of collection
     const cName = makeText(c.name, FONT_SEMIBOLD, L_FONT_SIZE)
@@ -98,6 +103,7 @@ async function writeVariables() {
       lastY = 0
       const valueColumn: FrameNode = createAutolayout(m.name, 'VERTICAL', MARGIN_Y)
       collectionRow.appendChild(valueColumn)
+      valueColumn.layoutSizingHorizontal = "HUG"
 
       const modeName = (c.modes.length === 1 && m.name === DEFAULT_MODE_NAME) ? 'Value' : m.name
       const mName = makeText(modeName, FONT_SEMIBOLD, FONT_SIZE)
@@ -114,7 +120,7 @@ async function writeVariables() {
         let value = v.valuesByMode[m.modeId]
         let font = FONT_REGULAR
         if (value?.type === 'VARIABLE_ALIAS') {
-          value = figma.variables.getVariableById(value.id).name.toString()
+          value = `{${figma.variables.getVariableById(value.id).name.toString().replace(/\//g, '.')}}`
           font = FONT_ITALIC
         } else
           value = (type === 'COLOR') ? figmaRGBToHex(v.valuesByMode[m.modeId]) : v.valuesByMode[m.modeId].toString()
@@ -171,6 +177,29 @@ async function writeVariables() {
           addToColumn(valueColumn, vValue)
         }
       }
+
+    }
+
+    const valueColumn: FrameNode = createAutolayout('scopes', 'VERTICAL', MARGIN_Y)
+    collectionRow.appendChild(valueColumn)
+    valueColumn.layoutSizingHorizontal = "HUG"
+
+    const scopeName = 'Allowed scopes'
+    const sName = makeText(scopeName, FONT_SEMIBOLD, FONT_SIZE)
+    offset(sName, MARGIN_X, 0)
+    addToColumn(valueColumn, sName)
+    sName.minHeight = cName.height
+    sName.textAlignVertical = 'CENTER'
+    
+    // Print types
+    for (const v of variables) {
+      let vValue: SceneNode
+      let value = v.scopes.join(', ')
+      let font = FONT_REGULAR
+
+      vValue = makeText(value, font, FONT_SIZE)
+      offset(vValue, 0, MARGIN_Y)
+      addToColumn(valueColumn, vValue)
     }
   }
 }
